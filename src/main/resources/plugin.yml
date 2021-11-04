@@ -1,0 +1,42 @@
+name: ChatPlugin
+version: '${project.version}'
+main: buj.chatplugin.ChatPlugin
+api-version: 1.17
+authors: [ Buj ]
+description: Simple yet powerful chat plugin
+softdepend:
+  - TagAPI
+commands:
+  chatplugin:
+    description: Manage ChatPlugin settings
+    aliases: [ cp ]
+    usage: /chatplugin <reload>
+permissions:
+  chatplugin.admin:
+    default: op
+    description: Allow everything
+    children:
+      - chatplugin.reload
+      - chatplugin.user
+  chatplugin.reload:
+    default: op
+    description: Allow user to reload plugin config
+  chatplugin.user:
+    default: true
+    description: Allow to do whatever regular users whould be able to
+    children:
+      - chatplugin.send
+      - chatplugin.format
+      - chatplugin.color
+  chatplugin.send:
+    default: true
+    description: Allow user to send messages
+  chatplugin.format:
+    default: true
+    description: Allow user to use format codes in messages
+  chatplugin.color:
+    default: true
+    description: Allow user to use colors in messages
+  chatplugin.magic:
+    default: false         # too terrible to be given to anyone
+    description: Allow user to use magic spells on his messages
