@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
@@ -87,23 +86,22 @@ public class ComponentUtils {
                 case "no_format":
                 {
                     AtomicReference<@Nullable Component> tmp = new AtomicReference<>(null);
+                    @NotNull Component finalTag = tag;
                     if (tag instanceof TextComponent) tmp.set(tag.style(
-                            Style.style()
+                            finalTag.style()
                                     .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
-                                    .build()
                     ));
                     tag.children().forEach(c -> tmp.set(c.style(
-                            Style.style()
+                            finalTag.style()
                                     .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
-                                    .build()
                     )));
 
                     if (tmp.get() != null) tag = Objects.requireNonNull(tmp.get());
@@ -113,15 +111,14 @@ public class ComponentUtils {
                 case "no_magic":
                 {
                     AtomicReference<@Nullable Component> tmp = new AtomicReference<>(null);
+                    @NotNull Component finalTag = tag;
                     if (tag instanceof TextComponent) tmp.set(tag.style(
-                            Style.style()
+                            finalTag.style()
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
-                                    .build()
                     ));
                     tag.children().forEach(c -> tmp.set(c.style(
-                            Style.style()
+                            finalTag.style()
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
-                                    .build()
                     )));
 
                     if (tmp.get() != null) tag = Objects.requireNonNull(tmp.get());
