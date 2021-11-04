@@ -4,12 +4,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -74,29 +76,22 @@ public class ComponentUtils {
                     tag = ComponentUtils.build(tag, !parts.contains("no_magic"));
                     break;
 
-                case "no_color":
+                case "clear":
                 {
-                    AtomicReference<@Nullable Component> tmp = new AtomicReference<>(null);
-                    if (tag instanceof TextComponent) tmp.set(tag.color(NamedTextColor.WHITE));
-                    tag.children().forEach(c -> tmp.set(c.color(NamedTextColor.WHITE)));
-
-                    if (tmp.get() != null) tag = Objects.requireNonNull(tmp.get());
-                }
-
-                case "no_format":
-                {
-                    AtomicReference<@Nullable Component> tmp = new AtomicReference<>(null);
-                    @NotNull Component finalTag = tag;
+                    AtomicReference<Component> tmp = new AtomicReference<>(tag);
+                    List<Component> children = new LinkedList<>();
                     if (tag instanceof TextComponent) tmp.set(tag.style(
-                            finalTag.style()
+                            tmp.get().style()
+                                    .color(NamedTextColor.WHITE)
                                     .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
                     ));
-                    tag.children().forEach(c -> tmp.set(c.style(
-                            finalTag.style()
+                    tag.children().forEach(c -> children.add(c.style(
+                            c.style()
+                                    .color(NamedTextColor.WHITE)
                                     .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
@@ -104,24 +99,51 @@ public class ComponentUtils {
                                     .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
                     )));
 
-                    if (tmp.get() != null) tag = Objects.requireNonNull(tmp.get());
+                    tag = tmp.get();
+                    tag = tag.children(children);
+                }
+
+                case "no_format":
+                {
+                    AtomicReference<Component> tmp = new AtomicReference<>(tag);
+                    List<Component> children = new LinkedList<>();
+                    if (tag instanceof TextComponent) tmp.set(tag.style(
+                            tmp.get().style()
+                                    .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
+                    ));
+                    tag.children().forEach(c -> children.add(c.style(
+                            c.style()
+                                    .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
+                                    .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
+                    )));
+
+                    tag = tmp.get();
+                    tag = tag.children(children);
                 }
                     break;
 
                 case "no_magic":
                 {
-                    AtomicReference<@Nullable Component> tmp = new AtomicReference<>(null);
-                    @NotNull Component finalTag = tag;
+                    AtomicReference<Component> tmp = new AtomicReference<>(tag);
+                    List<Component> children = new LinkedList<>();
                     if (tag instanceof TextComponent) tmp.set(tag.style(
-                            finalTag.style()
+                            tmp.get().style()
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
                     ));
-                    tag.children().forEach(c -> tmp.set(c.style(
-                            finalTag.style()
+                    tag.children().forEach(c -> children.add(c.style(
+                            c.style()
                                     .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
                     )));
 
-                    if (tmp.get() != null) tag = Objects.requireNonNull(tmp.get());
+                    tag = tmp.get();
+                    tag = tag.children(children);
                 }
                 break;
             }
@@ -252,145 +274,151 @@ public class ComponentUtils {
         String str = unicode(((TextComponent) component).content());
 
         List<TextComponent> components = new ArrayList<>();
-        TextColor textColor = NamedTextColor.WHITE;
 
-        boolean bold = false;
-        boolean italic = false;
-        boolean magic = false;
-        boolean stroke = false;
-        boolean underline = false;
+        {
+            AtomicReference<Style> style = new AtomicReference<>(Style.empty());
+            AtomicBoolean first = new AtomicBoolean(true);
+            Arrays.stream(str.split("&"))
+                    .forEach(s -> {
+                        if (first.get()) {
+                            first.set(false);
+                            if (s.length() > 0) components.add(
+                                    Component.text(s)
+                                            .style(style.get())
+                            );
+                            return;
+                        }
 
-        // A pretty weird builder
-        int index;
-        while ((index = str.indexOf("&")) != -1) {
-            // First, we must check if this is a last character of a string
-            if (index == str.length() - 1) break;
+                        // First character is always a color code
 
-            // Now we can re-color our current component differently depending on the next character
+                        // Unless there's no first character
+                        if (s.length() == 0) {
+                            components.add(
+                                    Component.text("&" + s)
+                                            .style(style.get())
+                            );
+                            return;
+                        }
 
-            // Totally not a terrible code
+                        char colorChar = s.charAt(0); // Get the color code
 
-            // We must make sure we aren't putting garbage objects in our array
-            if (index > 0) {
-                // Push whatever was before
-                components.add(
-                        Component.text(str.substring(0, index))
-                                .color(textColor)
-                                .decoration(TextDecoration.BOLD, bold)
-                                .decoration(TextDecoration.ITALIC, italic)
-                                .decoration(TextDecoration.OBFUSCATED, magic)
-                                .decoration(TextDecoration.STRIKETHROUGH, stroke)
-                                .decoration(TextDecoration.UNDERLINED, underline)
-                );
-            }
+                        // There can be no case when there are 2 '&'s in
+                        // a singular string
+                        switch (colorChar) {
+                            case 'a':
+                                style.set(style.get().color(NamedTextColor.GREEN));
+                                break;
+                            case 'b':
+                                style.set(style.get().color(NamedTextColor.AQUA));
+                                break;
+                            case 'c':
+                                style.set(style.get().color(NamedTextColor.RED));
+                                break;
+                            case 'd':
+                                style.set(style.get().color(NamedTextColor.LIGHT_PURPLE));
+                                break;
+                            case 'e':
+                                style.set(style.get().color(NamedTextColor.YELLOW));
+                                break;
+                            case 'f':
+                                style.set(style.get().color(NamedTextColor.WHITE));
+                                break;
+                            case '0':
+                                style.set(style.get().color(NamedTextColor.BLACK));
+                                break;
+                            case '1':
+                                style.set(style.get().color(NamedTextColor.DARK_BLUE));
+                                break;
+                            case '2':
+                                style.set(style.get().color(NamedTextColor.DARK_GREEN));
+                                break;
+                            case '3':
+                                style.set(style.get().color(NamedTextColor.DARK_AQUA));
+                                break;
+                            case '4':
+                                style.set(style.get().color(NamedTextColor.DARK_RED));
+                                break;
+                            case '5':
+                                style.set(style.get().color(NamedTextColor.DARK_PURPLE));
+                                break;
+                            case '6':
+                                style.set(style.get().color(NamedTextColor.GOLD));
+                                break;
+                            case '7':
+                                style.set(style.get().color(NamedTextColor.DARK_GRAY));
+                                break;
+                            case '8':
+                                style.set(style.get().color(NamedTextColor.GRAY));
+                                break;
+                            case '9':
+                                style.set(style.get().color(NamedTextColor.BLUE));
+                                break;
+                            case 'k':
+                                if (allowMagic) style.set(style.get().decoration(TextDecoration.OBFUSCATED, TextDecoration.State.TRUE));
+                                break;
+                            case 'l':
+                                style.set(style.get().decoration(TextDecoration.BOLD, TextDecoration.State.TRUE));
+                                break;
+                            case 'm':
+                                style.set(style.get().decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.TRUE));
+                                break;
+                            case 'n':
+                                style.set(style.get().decoration(TextDecoration.UNDERLINED, TextDecoration.State.TRUE));
+                                break;
+                            case 'o':
+                                style.set(style.get().decoration(TextDecoration.ITALIC, TextDecoration.State.TRUE));
+                                break;
+                            case 'r':
+                                // Reset everything
+                                style.set(
+                                        style.get().color(NamedTextColor.WHITE)
+                                                .decoration(TextDecoration.OBFUSCATED, TextDecoration.State.FALSE)
+                                                .decoration(TextDecoration.BOLD, TextDecoration.State.FALSE)
+                                                .decoration(TextDecoration.STRIKETHROUGH, TextDecoration.State.FALSE)
+                                                .decoration(TextDecoration.UNDERLINED, TextDecoration.State.FALSE)
+                                                .decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE)
+                                );
+                                break;
+                            case '#':
+                                // HEX colors
+                                if (s.length() < 7) {
+                                    components.add(
+                                            Component.text("&" + s)
+                                                    .style(style.get())
+                                    );
+                                    return;
+                                }
+                                String hexCode = s.substring(1, 7);
+                                if (!hexCode.matches("^[0-9a-fA-F]{6}$")) {
+                                    components.add(
+                                            Component.text("&" + s)
+                                                    .style(style.get())
+                                    );
+                                    return;
+                                }
+                                try {
+                                    int color = Integer.parseInt(hexCode, 16);
+                                    style.set(style.get().color(TextColor.color(color)));
+                                } catch (Exception ignored) {}
+                                components.add(
+                                        Component.text(s.substring(7))
+                                                .style(style.get())
+                                );
+                                return;
 
-            char nextChar = str.toLowerCase().charAt(index + 1);
+                            default:
+                                components.add(
+                                        Component.text("&" + s)
+                                                .style(style.get())
+                                );
+                                return;
+                        }
 
-            // Clean things up a bit (drop the color code and whatever before it)
-            str = str.substring(index + 2);
-
-            // There's no point in coloring if there's nothing to color
-            if (str.length() == 0) break;
-
-            // I haven't found any ways to do this thing better
-            switch (nextChar) {
-                case 'a':
-                    textColor = NamedTextColor.GREEN;
-                    break;
-                case 'b':
-                    textColor = NamedTextColor.AQUA;
-                    break;
-                case 'c':
-                    textColor = NamedTextColor.RED;
-                    break;
-                case 'd':
-                    textColor = NamedTextColor.LIGHT_PURPLE;
-                    break;
-                case 'e':
-                    textColor = NamedTextColor.YELLOW;
-                    break;
-                case 'f':
-                    textColor = NamedTextColor.WHITE;
-                    break;
-                case '0':
-                    textColor = NamedTextColor.BLACK;
-                    break;
-                case '1':
-                    textColor = NamedTextColor.DARK_BLUE;
-                    break;
-                case '2':
-                    textColor = NamedTextColor.DARK_GREEN;
-                    break;
-                case '3':
-                    textColor = NamedTextColor.DARK_AQUA;
-                    break;
-                case '4':
-                    textColor = NamedTextColor.DARK_RED;
-                    break;
-                case '5':
-                    textColor = NamedTextColor.DARK_PURPLE;
-                    break;
-                case '6':
-                    textColor = NamedTextColor.GOLD;
-                    break;
-                case '7':
-                    textColor = NamedTextColor.DARK_GRAY;
-                    break;
-                case '8':
-                    textColor = NamedTextColor.GRAY;
-                    break;
-                case '9':
-                    textColor = NamedTextColor.BLUE;
-                    break;
-                case 'k':
-                    if (allowMagic) magic = true;
-                    break;
-                case 'l':
-                    bold = true;
-                    break;
-                case 'm':
-                    stroke = true;
-                    break;
-                case 'n':
-                    underline = true;
-                    break;
-                case 'o':
-                    italic = true;
-                    break;
-                case 'r':
-                    // Reset everything
-                    textColor = NamedTextColor.WHITE;
-                    bold = false;
-                    italic = false;
-                    magic = false;
-                    underline = false;
-                    stroke = false;
-                    break;
-                case '#':
-                    // HEX colors
-                    if (str.length() < 6) break;
-                    String hexCode = str.substring(0, 6);
-                    str = str.substring(6);
-                    if (!hexCode.matches("^[0-9a-fA-F]{6}$")) break;
-                    try {
-                        int color = Integer.parseInt(hexCode, 16);
-                        textColor = TextColor.color(color);
-                    } catch (Exception ignored) {}
-                    break;
-            }
-        }
-
-        // If there's some stuff we haven't touched yet, add them in the end
-        if (str.length() > 0) {
-            components.add(
-                    Component.text(str)
-                            .color(textColor)
-                            .decoration(TextDecoration.BOLD, bold)
-                            .decoration(TextDecoration.ITALIC, italic)
-                            .decoration(TextDecoration.OBFUSCATED, magic)
-                            .decoration(TextDecoration.STRIKETHROUGH, stroke)
-                            .decoration(TextDecoration.UNDERLINED, underline)
-            );
+                        components.add(
+                                Component.text(s.substring(1))
+                                        .style(style.get())
+                        );
+                    });
         }
 
         return Component.join(
