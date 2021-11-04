@@ -26,5 +26,5 @@ jobs:
       run: mvn -B package --file pom.xml
     - uses: actions/upload-artifact@v2
       with:
-        name: Upload ChatPlugin jar
+        name: ChatPlugin.jar
         path: target/ChatPlugin*
